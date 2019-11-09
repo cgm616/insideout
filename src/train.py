@@ -4,7 +4,9 @@ import keras
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, Reshape, Input, MaxPooling2D, Conv2D, Flatten
-from keras import optimizers
+from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # Read the dataset into a dataframe
 raw_data_file_name = "dataset/fer2013.csv"
@@ -42,6 +44,15 @@ first_test_pixels = first_test_pixels.reshape(first_test_pixels.shape[0], 48, 48
 second_test_pixels = process_pixels(second_test_data["pixels"])
 second_test_pixels = second_test_pixels.reshape(second_test_pixels.shape[0], 48, 48, 1)
 
+datagen = ImageDataGenerator(
+    featurewise_center=False,
+    featurewise_std_normalization=False,
+    rotation_range=10,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True
+)
+
 # Start building the Convolutional Neural Network with input shape (?, 48, 48, 1) and output (?, 7)
 model = Sequential()
 model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape = (48, 48, 1)))
@@ -52,14 +63,19 @@ model.add(Flatten())
 
 model.add(Dense(128, activation='relu'))
 model.add(Dense(7, activation='softmax'))
-model.summary()
 
-# Using the adamax optimizer, set up the regression
-adamax = optimizers.Adamax()
-model.compile(loss='categorical_crossentropy', optimizer=adamax, metrics=['accuracy'])
+optimizer = Adam(learning_rate=0.0009)
+model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+early_stop = EarlyStopping('val_loss', patience=50)
+reduce_lr = ReduceLROnPlateau('val_loss', factor=0.1, patience=int(50/4), verbose=1)
+callbacks = [early_stop, reduce_lr]
 
 # Train the model on the training data
-model.fit(train_pixels, train_expected, validation_data=(train_pixels, train_expected), epochs=10, batch_size=64)
+model.fit_generator(datagen.flow(train_pixels, train_expected, batch_size=64),
+                    steps_per_epoch=len(train_pixels) / 64,
+                    epochs=10, verbose=1, callbacks=callbacks,
+                    validation_data=(first_test_pixels,first_test_expected))
 
 # Evaluate the performance of the model on all of the training data and print
 train_score = model.evaluate(train_pixels, train_expected, batch_size=32)
