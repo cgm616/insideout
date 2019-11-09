@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from threading import Thread
 import pyfirmata
-import time
+import time as time_
 import keras
 
 EMOTIONS = ["angry","disgust","scared", "happy", "sad", "surprised","neutral"]
@@ -44,11 +44,47 @@ class WebcamVideoStream:
         self.stopped = True
 
 
+class Arduino:
+    def __init__(self, serial):
+        self.board = pyfirmata.Arduino(serial)
+        self.state = [False] * 7
+        self.on_intervals = [1] * 7
+        millis = int(round(time_.time() * 1000))
+        self.times = [millis + 1] * 7
+        self.stop = False
+
+    def loop(self):
+        while not self.stop:
+            millis = int(round(time_.time() * 1000))
+            for i in range(len(self.times)):
+                if millis >= self.times[i]:
+                    if self.state[i]:
+                        self.board.digital[i+2].write(0)
+                        self.times[i] += 20 - self.on_intervals[i]
+                    else:
+                        self.board.digital[i+2].write(1)
+                        self.times[i] += self.on_intervals[i]
+                    self.state[i] = not self.state[i]
+
+    
+    def run(self):
+        Thread(target=self.loop, args=()).start()
+        return self
+    
+    def update_colors(self, prob):
+        for i in range(7):
+            self.on_intervals[i] = 1 + int(prob[i] * 18.0)
+
+
 class MoodRing:
-    def __init__(self, file='model/cnn.h5'):
-        #self.board = pyfirmata.Arduino('/dev/tty.usbmodem14401')
+    def __init__(self, serial, file='model/cnn.h5'):
+        print("starting arduino")
+        self.arduino = Arduino(serial).run()
+        print("loading model")
         self.model = keras.models.load_model(file)
+        print("loading cascade")
         self.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        print("starting webcam")
         self.webcam = WebcamVideoStream(src=0).start()
 
     def crop_found_faces(self, image, locations):
@@ -58,7 +94,7 @@ class MoodRing:
                 None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             for (x, y, w, h) in locations])
 
-    def render(self, image, locations, predictions):
+    def render_to_screen(self, image, locations, predictions):
         # Put a rectangle around each face
         for ((x, y, w, h), vector) in zip(locations, predictions):
             cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -68,6 +104,10 @@ class MoodRing:
             
             # Show the image
         cv2.imshow("Capturing", image)
+
+    def render_to_arduino(self, probabilities):
+        if len(probabilities) > 0:
+            self.arduino.update_colors(probabilities[0])
 
     def run(self):
         # Loop until stopped
@@ -97,7 +137,8 @@ class MoodRing:
 
             predictions = self.model.predict(face_images)
 
-            self.render(resized, face_locations, predictions)
+            self.render_to_screen(resized, face_locations, predictions)
+            self.render_to_arduino(predictions)
 
             key = cv2.waitKey(1)
 
@@ -105,15 +146,12 @@ class MoodRing:
                 self.webcam.stop()
                 cv2.destroyAllWindows()
                 break
-    
-    def blink(self):
-        while True:
-            self.board.digital[6].write(1)
-            time.sleep(0.5)
-            self.board.digital[6].write(0)
-            time.sleep(0.5)
+
+    def test_arduino(self):
+        print("running")
+        self.arduino.run()
 
 
 if __name__ == '__main__':
-    app = MoodRing()
-    app.blink()
+    app = MoodRing('/dev/cu.usbmodem14401', 'model/cnn.h5')
+    app.run()
