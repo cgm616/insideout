@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 from threading import Thread
-
+import pyfirmata
+import time
 
 
 # This class and most of the code that interacts with it was found at
@@ -43,8 +44,9 @@ class WebcamVideoStream:
 
 class MoodRing:
     def __init__(self):
-        self.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        self.webcam = WebcamVideoStream(src=0).start()
+        self.board = pyfirmata.Arduino('/dev/tty.usbmodem14401')
+        #self.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        #self.webcam = WebcamVideoStream(src=0).start()
 
     def run(self):
         # Loop until stopped
@@ -81,8 +83,15 @@ class MoodRing:
                 self.webcam.stop()
                 cv2.destroyAllWindows()
                 break
+    
+    def blink(self):
+        while True:
+            self.board.digital[6].write(1)
+            time.sleep(0.5)
+            self.board.digital[6].write(0)
+            time.sleep(0.5)
 
 
 if __name__ == '__main__':
     app = MoodRing()
-    app.run()
+    app.blink()
