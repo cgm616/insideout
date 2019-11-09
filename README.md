@@ -21,3 +21,15 @@ Your organization should look like
 - LICENSE
 - README.md
 - requirements.txt
+
+To run the Jupyter notebooks in `./notebooks`, you must make sure that the virtualenv kernel exists.
+Assuming you've installed the requirements as above, run
+
+```sh
+> ipython kernel install --user --name=venv
+> jupyter lab
+```
+
+This will open up a new tab in your browser with the Jupyter instance.
+Navigate to `./notebooks` and open up which ever you want to run.
+Make sure that the kernel on the upper right of the editor says `venv` (switch it if it says `python3`) and you should be good to go.
