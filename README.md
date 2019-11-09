@@ -21,6 +21,7 @@ Your organization should look like
 - LICENSE
 - README.md
 - requirements.txt
+```
 
 To run the Jupyter notebooks in `./notebooks`, you must make sure that the virtualenv kernel exists.
 Assuming you've installed the requirements as above, run
