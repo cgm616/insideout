@@ -156,4 +156,6 @@ class MoodRing:
 
 if __name__ == '__main__':
     app = MoodRing('model/cnn.h5')
+    # If running with arduino,
+    # app = MoodRing('model/cnn.h5', arduino=True, serial='[path to serial port of arduino]')
     app.run()
