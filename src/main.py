@@ -77,9 +77,11 @@ class Arduino:
 
 
 class MoodRing:
-    def __init__(self, serial, file='model/cnn.h5'):
-        print("starting arduino")
-        self.arduino = Arduino(serial).run()
+    def __init__(self, file='model/cnn.h5', arduino=False, serial=''):
+        self.arduino = arduino
+        if arduino:
+            print("starting arduino")
+            self.board = Arduino(serial).run()
         print("loading model")
         self.model = keras.models.load_model(file)
         print("loading cascade")
@@ -106,8 +108,8 @@ class MoodRing:
         cv2.imshow("Capturing", image)
 
     def render_to_arduino(self, probabilities):
-        if len(probabilities) > 0:
-            self.arduino.update_colors(probabilities[0])
+        if len(probabilities) > 0 and self.arduino:
+            self.board.update_colors(probabilities[0])
 
     def run(self):
         # Loop until stopped
@@ -153,5 +155,5 @@ class MoodRing:
 
 
 if __name__ == '__main__':
-    app = MoodRing('/dev/cu.usbmodem14401', 'model/cnn.h5')
+    app = MoodRing('model/cnn.h5')
     app.run()
