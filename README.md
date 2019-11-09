@@ -10,7 +10,7 @@ Simply plug in an arduino with leds wired to pins 2 through 8, train the machine
 Using your webcam, InsideOut will scan your face and reveal your deepest secrets (well, maybe just if you're feeling one of the 7 emotions it supports).
 
 Using Haar cascades to identify faces, then cropping those faces and feeding them into a custom convolutional neural network, InsideOut identifies the emotions of every face in view.
-The CNN was trained on a dataset of about 30,000 faces linked in below (which also contains instructions for installation and running).
+The CNN was trained on a dataset of about 30,000 faces linked below.
 Each sample came with a 48x48 greyscale image of an emotive face and a number that identified one of 7 emotions.
 
 ## What inspired InsideOut?
