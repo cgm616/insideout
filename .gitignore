@@ -105,3 +105,8 @@ venv.bak/
 
 dataset/*.csv
 dataset/*.tar.gz
+
+bin
+etc
+pyvenv.cfg
+share
