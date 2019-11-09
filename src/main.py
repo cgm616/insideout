@@ -3,7 +3,9 @@ import numpy as np
 from threading import Thread
 import pyfirmata
 import time
+import keras
 
+EMOTIONS = ["angry","disgust","scared", "happy", "sad", "surprised","neutral"]
 
 # This class and most of the code that interacts with it was found at
 # https://www.pyimagesearch.com/2015/12/21/increasing-webcam-fps-with-python-and-opencv/
@@ -43,10 +45,29 @@ class WebcamVideoStream:
 
 
 class MoodRing:
-    def __init__(self):
-        self.board = pyfirmata.Arduino('/dev/tty.usbmodem14401')
-        #self.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        #self.webcam = WebcamVideoStream(src=0).start()
+    def __init__(self, file='model/cnn.h5'):
+        #self.board = pyfirmata.Arduino('/dev/tty.usbmodem14401')
+        self.model = keras.models.load_model(file)
+        self.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        self.webcam = WebcamVideoStream(src=0).start()
+
+    def crop_found_faces(self, image, locations):
+        return np.array([
+            cv2.normalize(
+                cv2.resize(image[y:y+h, x:x+w], (48, 48)),
+                None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            for (x, y, w, h) in locations])
+
+    def render(self, image, locations, predictions):
+        # Put a rectangle around each face
+        for ((x, y, w, h), vector) in zip(locations, predictions):
+            cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            emotion_probability = np.max(vector)
+            label = EMOTIONS[vector.argmax()]
+            cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+            
+            # Show the image
+        cv2.imshow("Capturing", image)
 
     def run(self):
         # Loop until stopped
@@ -58,11 +79,13 @@ class MoodRing:
             width = int(frame.shape[1] * scale_percent / 100)
             height = int(frame.shape[0] * scale_percent / 100) 
 
+            resized = cv2.resize(frame, (width, height))
+
             # Convert to greyscale and downscale
-            grey = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (width, height))
+            grey = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
             # Using the cascade, identify all faces in the image
-            faces = self.cascade.detectMultiScale(
+            face_locations = self.cascade.detectMultiScale(
                 grey,
                 scaleFactor=1.1,
                 minNeighbors=5,
@@ -70,12 +93,11 @@ class MoodRing:
                 #flags = cv2.CV_HAAR_SCALE_IMAGE
             )
 
-            # Put a rectangle around each face
-            for (x, y, w, h) in faces:
-                cv2.rectangle(grey, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            
-            # Show the image
-            cv2.imshow("Capturing", grey)
+            face_images = self.crop_found_faces(grey, face_locations).reshape(len(face_locations), 48, 48, 1)
+
+            predictions = self.model.predict(face_images)
+
+            self.render(resized, face_locations, predictions)
 
             key = cv2.waitKey(1)
 
